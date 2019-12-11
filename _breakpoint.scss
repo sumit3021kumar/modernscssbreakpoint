@@ -1,0 +1,206 @@
+/// Do not override this value, or things will break
+///
+/// @link https://github.com/sumit3021kumar/modernscssbreakpoint
+
+$breakpoint-base-font-size: 16px !default;
+
+$breakpoint-responsive: true !default;
+
+
+$breakpoint-breakpoints: (
+    mobile:  320px,
+    tablet:  740px,
+    desktop: 980px,
+    wide:    1300px
+) !default;
+
+$breakpoint-static-breakpoint: desktop !default;
+
+$breakpoint-show-breakpoints: () !default;
+
+$breakpoint-media-type: all !default;
+
+@function breakpoint-px2em($px, $base-font-size: $breakpoint-base-font-size) {
+    @if ($breakpoint-base-font-size != 16px) {
+        @warn "Overriding $breakpoint-base-font-size will break things";
+    }
+    @if ($base-font-size != 16px) {
+        @warn "The $base-font-size argument will be removed";
+    }
+    @if unitless($px) {
+        @warn "Assuming #{$px} to be in pixels, attempting to convert it into pixels.";
+        @return breakpoint-px2em($px * 1px, $base-font-size);
+    } @else if unit($px) == em {
+        @return $px;
+    }
+    @return ($px / $base-font-size) * 1em;
+}
+
+
+@function breakpoint-get-breakpoint-width($name, $breakpoints: $breakpoint-breakpoints) {
+    @if map-has-key($breakpoints, $name) {
+        @return map-get($breakpoints, $name);
+    } @else {
+        @warn "Breakpoint #{$name} wasn't found in $breakpoints.";
+    }
+}
+
+
+@mixin breakpoint(
+    $from: false,
+    $until: false,
+    $and: false,
+    $media-type: $breakpoint-media-type,
+    $breakpoints: $breakpoint-breakpoints,
+    $responsive: $breakpoint-responsive,
+    $static-breakpoint: $breakpoint-static-breakpoint
+) {
+    $min-width: 0;
+    $max-width: 0;
+    $media-query: '';
+
+    // From: this breakpoint (inclusive)
+    @if $from {
+        @if type-of($from) == number {
+            $min-width: breakpoint-px2em($from);
+        } @else {
+            $min-width: breakpoint-px2em(breakpoint-get-breakpoint-width($from, $breakpoints));
+        }
+    }
+
+    // Until: that breakpoint (exclusive)
+    @if $until {
+        @if type-of($until) == number {
+            $max-width: breakpoint-px2em($until);
+        } @else {
+            $max-width: breakpoint-px2em(breakpoint-get-breakpoint-width($until, $breakpoints)) - .01em;
+        }
+    }
+
+    // Responsive support is disabled, rasterize the output outside @media blocks
+    // The browser will rely on the cascade itself.
+    @if $responsive == false {
+        $static-breakpoint-width: breakpoint-get-breakpoint-width($static-breakpoint, $breakpoints);
+        $target-width: breakpoint-px2em($static-breakpoint-width);
+
+        // Output only rules that start at or span our target width
+        @if (
+            $and == false
+            and $min-width <= $target-width
+            and (
+                $until == false or $max-width >= $target-width
+            )
+            and $media-type != 'print'
+        ) {
+            @content;
+        }
+    }
+
+    // Responsive support is enabled, output rules inside @media queries
+    @else {
+        @if $min-width != 0 { $media-query: '#{$media-query} and (min-width: #{$min-width})'; }
+        @if $max-width != 0 { $media-query: '#{$media-query} and (max-width: #{$max-width})'; }
+        @if $and            { $media-query: '#{$media-query} and #{$and}'; }
+
+        // Remove unnecessary media query prefix 'all and '
+        @if ($media-type == 'all' and $media-query != '') {
+            $media-type: '';
+            $media-query: str-slice(unquote($media-query), 6);
+        }
+
+        @media #{$media-type + $media-query} {
+            @content;
+        }
+    }
+}
+
+/// Quick sort
+///
+/// @author Sam Richards
+/// @access private
+/// @param {List} $list - List to sort
+/// @returns {List} Sorted List
+@function _breakpoint-quick-sort($list) {
+    $less:  ();
+    $equal: ();
+    $large: ();
+
+    @if length($list) > 1 {
+        $seed: nth($list, ceil(length($list) / 2));
+
+        @each $item in $list {
+            @if ($item == $seed) {
+                $equal: append($equal, $item);
+            } @else if ($item < $seed) {
+                $less: append($less, $item);
+            } @else if ($item > $seed) {
+                $large: append($large, $item);
+            }
+        }
+
+        @return join(join(_breakpoint-quick-sort($less), $equal), _breakpoint-quick-sort($large));
+    }
+
+    @return $list;
+}
+
+/// Sort a map by values (works with numbers only)
+///
+/// @access private
+/// @param {Map} $map - Map to sort
+/// @returns {Map} Map sorted by value
+@function _breakpoint-map-sort-by-value($map) {
+    $map-sorted: ();
+    $map-keys: map-keys($map);
+    $map-values: map-values($map);
+    $map-values-sorted: _breakpoint-quick-sort($map-values);
+
+    // Reorder key/value pairs based on key values
+    @each $value in $map-values-sorted {
+        $index: index($map-values, $value);
+        $key: nth($map-keys, $index);
+        $map-sorted: map-merge($map-sorted, ($key: $value));
+
+        // Unset the value in $map-values to prevent the loop
+        // from finding the same index twice
+        $map-values: set-nth($map-values, $index, 0);
+    }
+
+    @return $map-sorted;
+}
+
+
+@mixin breakpoint-add-breakpoint($name, $width) {
+    $new-breakpoint: ($name: $width);
+    $breakpoint-breakpoints: map-merge($breakpoint-breakpoints, $new-breakpoint) !global;
+    $breakpoint-breakpoints: _breakpoint-map-sort-by-value($breakpoint-breakpoints) !global;
+}
+
+
+@mixin breakpoint-show-breakpoints($show-breakpoints: $breakpoint-show-breakpoints, $breakpoints: $breakpoint-breakpoints) {
+    body:before {
+        background-color: #FCF8E3;
+        border-bottom: 1px solid #FBEED5;
+        border-left: 1px solid #FBEED5;
+        color: #C09853;
+        font: small-caption;
+        padding: 3px 6px;
+        pointer-events: none;
+        position: fixed;
+        right: 0;
+        top: 0;
+        z-index: 100;
+
+        // Loop through the breakpoints that should be shown
+        @each $show-breakpoint in $show-breakpoints {
+            $width: breakpoint-get-breakpoint-width($show-breakpoint, $breakpoints);
+            @include breakpoint($show-breakpoint, $breakpoints: $breakpoints) {
+                content: "#{$show-breakpoint} ≥ #{$width} (#{breakpoint-px2em($width)})";
+            }
+        }
+    }
+}
+
+@if length($breakpoint-show-breakpoints) > 0 {
+    @include breakpoint-show-breakpoints;
+}

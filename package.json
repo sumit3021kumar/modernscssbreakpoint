@@ -2,9 +2,22 @@
   "name": "modernscssbreakpoint",
   "version": "1.0.0",
   "description": "This Package contain with modern css breakpionts",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "main": "_breakpoint.scss",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sumit3021kumar/modernscssbreakpoint"
+  },
+  "contributors": [
+    {
+     "name": "",
+     "email": "",
+     "web": ""
+    }
+  ],
+  "devDependencies": {
+    "eyeglass": "^2.4.1",
+    "node-sass": "^4.12.0",
+    "sassdoc": "^2.7.1"
   },
   "author": "Sumit",
   "license": "ISC"
